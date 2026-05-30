@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Smart AI Friend",
+    "slug": "smart-ai-friend",
+    "version": "1.0.0",
+    "description": "An interactive AI-powered virtual pet that evolves based on user care and interactions",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E6F4FE"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartaifriend.app",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.smartaifriend.app",
+      "versionCode": 1,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "default"
+          ]
+        }
+      ],
+      [
+        "expo-sqlite"
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "smart-ai-friend"
+      }
+    }
+  }
+}
