@@ -4,7 +4,7 @@ import { theme } from '../theme';
 import { useCreatureStore } from '../../core/state/store';
 
 export const HomeScreen = ({ navigation }: any) => {
-  const { creature, createCreature, isLoading } = useCreatureStore();
+  const { creature, createCreature, isLoading, error } = useCreatureStore();
   const [name, setName] = useState('');
 
   const handleCreateCreature = async () => {
@@ -39,6 +39,7 @@ export const HomeScreen = ({ navigation }: any) => {
           >
             <Text style={styles.buttonText}>{isLoading ? 'Creating...' : 'Start New Egg'}</Text>
           </TouchableOpacity>
+          {error && <Text style={styles.errorText}>{error}</Text>}
         </>
       ) : (
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Creature')}>
@@ -91,5 +92,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.semibold,
+  },
+  errorText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.error,
+    textAlign: 'center',
   },
 });
