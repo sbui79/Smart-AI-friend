@@ -1,53 +1,87 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../theme';
 import { useCreatureStore } from '../../core/state/store';
+import { CreatureEngine } from '../../core/engine/CreatureEngine';
 import { CreatureDisplay } from '../components/creature/CreatureDisplay';
+import { StatBar } from '../components/creature/StatBar';
+import { ActionButtons } from '../components/creature/ActionButtons';
+import { SpeechBubble } from '../components/ai/SpeechBubble';
 
-export const CreatureScreen = () => {
-  const { creature, isLoading } = useCreatureStore();
+export const CreatureScreen = ({ navigation }: any) => {
+  const { creature, isLoading, lastResponse, performAction, deleteCreature, greet } =
+    useCreatureStore();
 
-  if (isLoading) {
+  // Say hello whenever the player opens this tab
+  useFocusEffect(
+    useCallback(() => {
+      greet();
+    }, [greet])
+  );
+
+  if (isLoading && !creature) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.emptyText}>Loading...</Text>
+      </SafeAreaView>
     );
   }
 
   if (!creature) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>No creature found. Create one first!</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.emptyText}>No creature yet.</Text>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Home')}>
+          <Text style={styles.buttonText}>Hatch an egg</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
+  const handleStartOver = async () => {
+    await deleteCreature();
+    navigation.navigate('Home');
+  };
+
+  if (CreatureEngine.isDead(creature)) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <CreatureDisplay creature={creature} />
+          <Text style={styles.memorialText}>
+            {creature.name} was neglected for too long and has passed away.
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={handleStartOver}>
+            <Text style={styles.buttonText}>Start a new egg</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const { physical, mental } = creature;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <CreatureDisplay creature={creature} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <CreatureDisplay creature={creature} />
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Hunger</Text>
-          <Text style={styles.statValue}>{creature.hunger || 0}%</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Happiness</Text>
-          <Text style={styles.statValue}>{creature.happiness || 0}%</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Energy</Text>
-          <Text style={styles.statValue}>{creature.energy || 0}%</Text>
-        </View>
-      </View>
+        {lastResponse && <SpeechBubble response={lastResponse} onQuickReply={performAction} />}
 
-      <View style={styles.placeholderSection}>
-        <Text style={styles.placeholderText}>
-          Interactive gameplay features coming soon...
-        </Text>
-      </View>
-    </ScrollView>
+        <View style={styles.card}>
+          <StatBar label="Hunger" value={physical.hunger} />
+          <StatBar label="Happiness" value={mental.happiness} />
+          <StatBar label="Energy" value={physical.energy} />
+          <StatBar label="Cleanliness" value={physical.cleanliness} />
+          <StatBar label="Health" value={physical.health} />
+          <StatBar label="Care quality" value={creature.careQuality} />
+        </View>
+
+        <ActionButtons isAsleep={creature.isAsleep} onAction={performAction} />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -59,50 +93,37 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: theme.spacing.lg,
   },
-  loadingText: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing['2xl'],
-  },
   emptyText: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.textSecondary,
     textAlign: 'center',
     marginTop: theme.spacing['2xl'],
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: theme.spacing['2xl'],
-    gap: theme.spacing.md,
-  },
-  statItem: {
-    flex: 1,
+  card: {
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  statValue: {
-    fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.primary,
-  },
-  placeholderSection: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
     borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.lg,
   },
-  placeholderText: {
-    fontSize: theme.typography.fontSize.lg,
+  memorialText: {
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  button: {
+    alignSelf: 'center',
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.md,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
 });

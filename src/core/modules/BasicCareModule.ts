@@ -2,6 +2,9 @@ import { ModuleDefinition } from './types';
 import { Creature, CareEvent } from '../engine/types';
 import { CreatureEngine } from '../engine/CreatureEngine';
 
+// Only keep recent events so the saved creature doesn't grow forever
+const MAX_CARE_HISTORY = 50;
+
 /**
  * Basic Care Module - Provides core care actions for creatures
  * Available in all tiers (free, full, premium)
@@ -147,6 +150,6 @@ function recordCareEvent(
 
   return {
     ...creature,
-    careHistory: [...creature.careHistory, event],
+    careHistory: [...creature.careHistory, event].slice(-MAX_CARE_HISTORY),
   };
 }

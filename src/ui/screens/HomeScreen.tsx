@@ -1,13 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { theme } from '../theme';
 import { useCreatureStore } from '../../core/state/store';
 
 export const HomeScreen = ({ navigation }: any) => {
   const { creature, createCreature, isLoading } = useCreatureStore();
+  const [name, setName] = useState('');
 
   const handleCreateCreature = async () => {
-    await createCreature('My Pet');
+    await createCreature(name.trim() || 'My Pet');
     if (useCreatureStore.getState().creature) {
       navigation.navigate('Creature');
     }
@@ -19,21 +20,29 @@ export const HomeScreen = ({ navigation }: any) => {
       <Text style={styles.subtitle}>Your virtual companion</Text>
 
       {!creature ? (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleCreateCreature}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Creating...' : 'Start New Egg'}
-          </Text>
-        </TouchableOpacity>
+        <>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Name your friend"
+            placeholderTextColor={theme.colors.textTertiary}
+            maxLength={20}
+            returnKeyType="done"
+            onSubmitEditing={handleCreateCreature}
+            accessibilityLabel="Creature name"
+          />
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleCreateCreature}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>{isLoading ? 'Creating...' : 'Start New Egg'}</Text>
+          </TouchableOpacity>
+        </>
       ) : (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate('Creature')}
-        >
-          <Text style={styles.buttonText}>Continue</Text>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Creature')}>
+          <Text style={styles.buttonText}>Visit {creature.name}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -58,6 +67,19 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing['2xl'],
+  },
+  input: {
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm + 4,
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: theme.spacing.md,
   },
   button: {
     backgroundColor: theme.colors.primary,

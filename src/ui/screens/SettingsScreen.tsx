@@ -114,11 +114,11 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border || '#E5E7EB',
   },
   infoLabel: {
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.textSecondary,
   },
   infoValue: {
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.text,
   },
@@ -134,11 +134,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.base,
     fontWeight: theme.typography.fontWeight.semibold,
   },
   aboutText: {
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.base,
     color: theme.colors.textSecondary,
     lineHeight: 24,
   },

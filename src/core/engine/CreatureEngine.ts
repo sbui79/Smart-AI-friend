@@ -180,15 +180,23 @@ export class CreatureEngine {
   }
 
   /**
-   * Update care quality score based on current stats
+   * Check if creature has died
    */
-  static updateCareQuality(creature: Creature): Creature {
+  static isDead(creature: Creature): boolean {
+    return creature.specialStates.includes('dead');
+  }
+
+  /**
+   * Update care quality score based on current stats
+   * @param hoursElapsed Scales the change so frequent ticks don't over-reward or over-punish
+   */
+  static updateCareQuality(creature: Creature, hoursElapsed: number = 1): Creature {
     return {
       ...creature,
       careQuality: this.isHealthy(creature)
-        ? Math.min(100, creature.careQuality + 1)
+        ? Math.min(100, creature.careQuality + 1 * hoursElapsed)
         : this.isCritical(creature)
-        ? Math.max(0, creature.careQuality - 5)
+        ? Math.max(0, creature.careQuality - 5 * hoursElapsed)
         : creature.careQuality,
     };
   }

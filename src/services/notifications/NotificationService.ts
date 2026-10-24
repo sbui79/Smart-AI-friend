@@ -1,34 +1,43 @@
 import * as Notifications from 'expo-notifications';
 import { Creature } from '../../core/engine/types';
+import { CreatureEngine } from '../../core/engine/CreatureEngine';
+import { TimeManager } from '../../core/engine/TimeManager';
+import { EvolutionManager } from '../../core/engine/EvolutionManager';
+
+const HOUR_MS = 1000 * 60 * 60;
+
+// If the creature is already critical, nudge again after this long
+const CRITICAL_REMINDER_DELAY_HOURS = 0.25;
 
 /**
- * Notification Service - Handles push notifications for creature care alerts
- * Manages low stat alerts and evolution readiness notifications
+ * Notification Service - Handles local notifications for creature care
+ * Schedules reminders for when the creature will need care and when it is ready to evolve
  */
 export class NotificationService {
   private static isInitialized = false;
+  private static hasPermission = false;
 
   /**
    * Initialize notification permissions and handlers
    */
-  static async initialize(): Promise<void> {
+  static async initialize(): Promise<boolean> {
     if (this.isInitialized) {
-      return;
+      return this.hasPermission;
     }
 
     try {
-      // Configure notification handler for when notification is received
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
-          shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
           shouldPlaySound: true,
-          shouldSetBadge: true,
+          shouldSetBadge: false,
         }),
       });
 
-      // Request notification permissions
       const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') {
+      this.hasPermission = status === 'granted';
+      if (!this.hasPermission) {
         console.warn('Notification permissions not granted');
       }
 
@@ -36,93 +45,75 @@ export class NotificationService {
     } catch (error) {
       console.error('Failed to initialize notifications:', error);
     }
+
+    return this.hasPermission;
+  }
+
+  private static careId(creatureId: string): string {
+    return `care_${creatureId}`;
+  }
+
+  private static evolveId(creatureId: string): string {
+    return `evolve_${creatureId}`;
   }
 
   /**
-   * Schedule low stat alerts when stats fall below threshold (30%)
-   * Called when creature stats are updated
+   * Schedule reminders based on the creature's current state.
+   * Call when the app goes to the background; replaces any earlier reminders.
    */
-  static async scheduleStatAlert(creature: Creature): Promise<void> {
-    try {
-      // Check if any critical stat is below 30%
-      const criticalStats = this.getCriticalStats(creature);
+  static async scheduleCareReminders(creature: Creature, now: Date = new Date()): Promise<void> {
+    if (!this.hasPermission) {
+      return;
+    }
 
-      if (criticalStats.length === 0) {
-        return; // No critical stats, no alert needed
+    try {
+      await this.cancelCreatureNotifications(creature.id);
+
+      if (CreatureEngine.isDead(creature)) {
+        return;
       }
 
-      // Cancel any existing low stat notifications for this creature
-      const existingNotifications = await Notifications.getAllScheduledNotificationsAsync();
-      const existingLowStatNotifs = existingNotifications.filter(
-        (n) => n.trigger && typeof n.trigger === 'object' && 'type' in n.trigger &&
-                (n.trigger as any).identifier?.includes(`lowstat_${creature.id}`)
+      // Remind just as the first stat drops into the critical range
+      const hoursUntilCritical = TimeManager.hoursUntilCritical(creature);
+      const careDate = TimeManager.addDaytimeHours(
+        now,
+        hoursUntilCritical > 0 ? hoursUntilCritical : CRITICAL_REMINDER_DELAY_HOURS
       );
 
-      for (const notif of existingLowStatNotifs) {
-        if (notif.identifier) {
-          await Notifications.cancelScheduledNotificationAsync(notif.identifier);
-        }
-      }
-
-      // Schedule new notification
-      const statLabel = criticalStats.join(', ');
       await Notifications.scheduleNotificationAsync({
-        identifier: `lowstat_${creature.id}_${Date.now()}`,
+        identifier: this.careId(creature.id),
         content: {
           title: `${creature.name} needs attention!`,
-          body: `${statLabel} is getting low. Time to care for your friend!`,
-          data: {
-            creatureId: creature.id,
-            type: 'low_stat_alert',
-          },
+          body: 'Your friend is getting hungry, tired, or lonely. Time to check in!',
+          data: { creatureId: creature.id, type: 'low_stat_alert' },
         },
-        trigger: {
-          type: 'time',
-          seconds: 600, // Alert every 10 minutes if stats remain critical
-        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: careDate },
       });
-    } catch (error) {
-      console.error('Failed to schedule stat alert:', error);
-    }
-  }
 
-  /**
-   * Schedule evolution ready notification when creature is ready to evolve
-   */
-  static async scheduleEvolutionReadyNotification(creature: Creature): Promise<void> {
-    try {
-      // Cancel any existing evolution notifications for this creature
-      const existingNotifications = await Notifications.getAllScheduledNotificationsAsync();
-      const existingEvolveNotifs = existingNotifications.filter(
-        (n) => n.trigger && typeof n.trigger === 'object' && 'type' in n.trigger &&
-                (n.trigger as any).identifier?.includes(`evolve_${creature.id}`)
-      );
-
-      for (const notif of existingEvolveNotifs) {
-        if (notif.identifier) {
-          await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+      // Let the player know when the creature can evolve
+      const config = EvolutionManager.getStageConfig(creature.evolutionStage);
+      if (config.nextStage && creature.careQuality >= config.minCareQuality) {
+        const evolveDate = new Date(
+          creature.stageStartDate.getTime() + config.durationHours * HOUR_MS
+        );
+        if (evolveDate > now) {
+          await Notifications.scheduleNotificationAsync({
+            identifier: this.evolveId(creature.id),
+            content: {
+              title: `${creature.name} is ready to evolve!`,
+              body: 'Your friend has grown. Visit them to see what they become!',
+              data: {
+                creatureId: creature.id,
+                type: 'evolution_ready',
+                currentStage: creature.evolutionStage,
+              },
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: evolveDate },
+          });
         }
       }
-
-      // Schedule evolution ready notification
-      await Notifications.scheduleNotificationAsync({
-        identifier: `evolve_${creature.id}`,
-        content: {
-          title: `${creature.name} is ready to evolve!`,
-          body: `Your friend has grown and is ready for the next stage. Visit them now!`,
-          data: {
-            creatureId: creature.id,
-            type: 'evolution_ready',
-            currentStage: creature.evolutionStage,
-          },
-        },
-        trigger: {
-          type: 'time',
-          seconds: 1, // Immediate notification
-        },
-      });
     } catch (error) {
-      console.error('Failed to schedule evolution notification:', error);
+      console.error('Failed to schedule care reminders:', error);
     }
   }
 
@@ -131,17 +122,8 @@ export class NotificationService {
    */
   static async cancelCreatureNotifications(creatureId: string): Promise<void> {
     try {
-      const allNotifications = await Notifications.getAllScheduledNotificationsAsync();
-      const creatureNotifications = allNotifications.filter(
-        (n) => n.trigger && typeof n.trigger === 'object' && 'type' in n.trigger &&
-               (n.trigger as any).identifier?.includes(creatureId)
-      );
-
-      for (const notif of creatureNotifications) {
-        if (notif.identifier) {
-          await Notifications.cancelScheduledNotificationAsync(notif.identifier);
-        }
-      }
+      await Notifications.cancelScheduledNotificationAsync(this.careId(creatureId));
+      await Notifications.cancelScheduledNotificationAsync(this.evolveId(creatureId));
     } catch (error) {
       console.error('Failed to cancel creature notifications:', error);
     }
@@ -156,29 +138,6 @@ export class NotificationService {
     } catch (error) {
       console.error('Failed to cancel all notifications:', error);
     }
-  }
-
-  /**
-   * Get list of critical stats (below 30% threshold)
-   */
-  private static getCriticalStats(creature: Creature): string[] {
-    const critical: string[] = [];
-    const threshold = 30;
-
-    if (creature.physical.hunger < threshold) {
-      critical.push('Hunger');
-    }
-    if (creature.physical.energy < threshold) {
-      critical.push('Energy');
-    }
-    if (creature.mental.happiness < threshold) {
-      critical.push('Happiness');
-    }
-    if (creature.physical.health < threshold) {
-      critical.push('Health');
-    }
-
-    return critical;
   }
 }
 

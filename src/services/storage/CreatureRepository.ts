@@ -65,6 +65,7 @@ export class CreatureRepository {
       ...data,
       lastInteractionDate: new Date(data.lastInteractionDate),
       stageStartDate: new Date(data.stageStartDate),
+      criticalSince: data.criticalSince ? new Date(data.criticalSince) : undefined,
       careHistory: data.careHistory.map((event: any) => ({
         ...event,
         timestamp: new Date(event.timestamp),

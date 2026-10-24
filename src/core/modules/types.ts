@@ -23,7 +23,7 @@ export interface Module {
   // Lifecycle hooks
   onLoad: () => void;
   onUnload: () => void;
-  onCreatureAction?: (actionType: string, creature: Creature) => void;
+  onCreatureAction?: (actionType: string, creature: Creature) => Creature | void;
 }
 
 // Module registry entry

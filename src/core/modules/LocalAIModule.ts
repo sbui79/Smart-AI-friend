@@ -48,6 +48,8 @@ export const LocalAIModule: ModuleDefinition = {
         text = generateGreeting(creature);
       } else if (context === 'status') {
         text = generateStatusResponse(creature);
+      } else if (context === 'asleep') {
+        text = 'Zzz... *mumbles your name in their sleep*';
       } else if (context === 'afterAction') {
         text = generateAfterActionResponse(creature);
       } else {
@@ -65,6 +67,11 @@ export const LocalAIModule: ModuleDefinition = {
      */
     getContextualQuickReplies: (creature: Creature): QuickReply[] => {
       const replies: QuickReply[] = [];
+
+      // A sleeping creature can only be petted
+      if (creature.isAsleep) {
+        return [{ label: 'Pet gently', action: 'pet' }];
+      }
 
       // Check critical needs first
       if (creature.physical.hunger < 30) {

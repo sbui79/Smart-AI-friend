@@ -7,11 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#E6F4FE"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -39,16 +34,18 @@
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "sounds": [
-            "default"
-          ]
-        }
-      ],
+      "expo-notifications",
       [
         "expo-sqlite"
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E6F4FE"
+        }
       ]
     ],
     "extra": {

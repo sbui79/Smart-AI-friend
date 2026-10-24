@@ -5,6 +5,8 @@ import { act } from '@testing-library/react-native';
 
 describe('creatureSlice', () => {
   beforeEach(async () => {
+    // Pin the clock to midday so the creature is awake
+    jest.useFakeTimers({ now: new Date('2026-05-28T12:00:00'), advanceTimers: true });
     await Database.init(':memory:');
     // Reset store
     useCreatureStore.setState({
@@ -16,6 +18,7 @@ describe('creatureSlice', () => {
 
   afterEach(async () => {
     await Database.close();
+    jest.useRealTimers();
   });
 
   describe('createCreature', () => {
@@ -123,6 +126,59 @@ describe('creatureSlice', () => {
 
       const finalHunger = useCreatureStore.getState().creature!.physical.hunger;
       expect(finalHunger).toBeGreaterThan(initialHunger);
+    });
+
+    it('should apply elapsed decay before the action', async () => {
+      await act(async () => {
+        await useCreatureStore.getState().createCreature('TestPet');
+      });
+
+      // Two waking hours pass without the app ticking
+      jest.setSystemTime(new Date('2026-05-28T14:00:00'));
+
+      await act(async () => {
+        await useCreatureStore.getState().performAction('pet');
+      });
+
+      // Hunger decays 15/hr and petting doesn't feed
+      expect(useCreatureStore.getState().creature!.physical.hunger).toBeCloseTo(70);
+    });
+
+    it('should only allow petting while asleep', async () => {
+      await act(async () => {
+        await useCreatureStore.getState().createCreature('TestPet');
+      });
+
+      jest.setSystemTime(new Date('2026-05-28T23:00:00'));
+
+      await act(async () => {
+        await useCreatureStore.getState().performAction('play');
+      });
+
+      const state = useCreatureStore.getState();
+      expect(state.creature!.isAsleep).toBe(true);
+      expect(state.creature!.careHistory).toHaveLength(0);
+    });
+  });
+
+  describe('tick', () => {
+    it('should decay stats and persist them', async () => {
+      await act(async () => {
+        await useCreatureStore.getState().createCreature('TestPet');
+      });
+
+      jest.setSystemTime(new Date('2026-05-28T13:00:00'));
+
+      await act(async () => {
+        await useCreatureStore.getState().tick();
+      });
+
+      const creature = useCreatureStore.getState().creature!;
+      expect(creature.physical.hunger).toBeCloseTo(85);
+
+      const { CreatureRepository } = require('../../../services/storage/CreatureRepository');
+      const loaded = await CreatureRepository.findById(creature.id);
+      expect(loaded?.physical.hunger).toBeCloseTo(85);
     });
   });
 });

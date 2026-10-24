@@ -5,7 +5,7 @@ export type EvolutionStage = 'egg' | 'baby' | 'child' | 'teen' | 'adult' | 'elde
 export type Mood = 'happy' | 'sad' | 'excited' | 'tired' | 'sick' | 'neutral';
 
 // Special states
-export type SpecialState = 'hibernating' | 'evolving' | 'sick';
+export type SpecialState = 'hibernating' | 'evolving' | 'sick' | 'dead';
 
 // Age modes (for future phases)
 export type AgeMode = '5-10' | '10-15' | '15+';
@@ -104,6 +104,7 @@ export interface Creature {
   careQuality: number;  // 0-100
   careHistory: CareEvent[];
   lastInteractionDate: Date;
+  criticalSince?: Date;  // When the creature most recently entered a critical state
 }
 
 // Evolution configuration

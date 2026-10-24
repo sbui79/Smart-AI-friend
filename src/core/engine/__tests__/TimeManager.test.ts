@@ -125,4 +125,122 @@ describe('TimeManager', () => {
       expect(result.isDead).toBe(false);
     });
   });
+
+  describe('frequent ticks', () => {
+    it('should accumulate decay across one-minute ticks', () => {
+      let creature = CreatureEngine.createCreature('TestPet');
+      const start = new Date('2026-05-28T12:00:00');
+      creature = { ...creature, lastInteractionDate: start };
+
+      for (let minute = 1; minute <= 60; minute++) {
+        const now = new Date(start.getTime() + minute * 60 * 1000);
+        creature = TimeManager.updateAfterTimeElapsed(creature, '15+', now);
+      }
+
+      expect(creature.physical.hunger).toBeCloseTo(85);
+      expect(creature.mental.happiness).toBeCloseTo(88);
+    });
+  });
+
+  describe('daytimeHoursBetween', () => {
+    it('should skip sleeping hours', () => {
+      // 8pm to 8am the next day: 2 waking hours before bed, 2 after waking
+      const hours = TimeManager.daytimeHoursBetween(
+        new Date('2026-05-28T20:00:00'),
+        new Date('2026-05-29T08:00:00')
+      );
+      expect(hours).toBeCloseTo(4);
+    });
+
+    it('should not decay stats overnight', () => {
+      const creature = {
+        ...CreatureEngine.createCreature('TestPet'),
+        lastInteractionDate: new Date('2026-05-28T21:59:00'),
+      };
+
+      const updated = TimeManager.updateAfterTimeElapsed(
+        creature,
+        '15+',
+        new Date('2026-05-29T06:00:00')
+      );
+
+      expect(updated.physical.hunger).toBeCloseTo(100 - 15 / 60);
+    });
+  });
+
+  describe('addDaytimeHours', () => {
+    it('should carry over into the next morning', () => {
+      const result = TimeManager.addDaytimeHours(new Date('2026-05-28T21:00:00'), 3);
+      expect(result).toEqual(new Date('2026-05-29T08:00:00'));
+    });
+  });
+
+  describe('hoursUntilCritical', () => {
+    it('should predict when the fastest-decaying stat goes critical', () => {
+      const creature = CreatureEngine.createCreature('TestPet');
+      // Hunger: (100 - 20) / 15
+      expect(TimeManager.hoursUntilCritical(creature)).toBeCloseTo(80 / 15);
+    });
+
+    it('should return 0 when already critical', () => {
+      const creature = CreatureEngine.updateStats(CreatureEngine.createCreature('TestPet'), {
+        'physical.hunger': 10,
+      });
+      expect(TimeManager.hoursUntilCritical(creature)).toBe(0);
+    });
+  });
+
+  describe('health and death', () => {
+    it('should drain health while critical', () => {
+      const creature = {
+        ...CreatureEngine.updateStats(CreatureEngine.createCreature('TestPet'), {
+          'physical.hunger': 0,
+        }),
+        lastInteractionDate: new Date('2026-05-28T12:00:00'),
+      };
+
+      const updated = TimeManager.updateAfterTimeElapsed(
+        creature,
+        '15+',
+        new Date('2026-05-28T14:00:00')
+      );
+
+      expect(updated.physical.health).toBeCloseTo(92);
+      expect(updated.criticalSince).toEqual(new Date('2026-05-28T14:00:00'));
+    });
+
+    it('should die after 96 hours continuously critical', () => {
+      const creature = {
+        ...CreatureEngine.updateStats(CreatureEngine.createCreature('TestPet'), {
+          'physical.hunger': 0,
+        }),
+        lastInteractionDate: new Date('2026-05-28T12:00:00'),
+        criticalSince: new Date('2026-05-24T11:00:00'),
+      };
+
+      const updated = TimeManager.updateAfterTimeElapsed(
+        creature,
+        '15+',
+        new Date('2026-05-28T12:00:00')
+      );
+
+      expect(CreatureEngine.isDead(updated)).toBe(true);
+    });
+
+    it('should reset the critical timer once cared for', () => {
+      const creature = {
+        ...CreatureEngine.createCreature('TestPet'),
+        lastInteractionDate: new Date('2026-05-28T12:00:00'),
+        criticalSince: new Date('2026-05-27T12:00:00'),
+      };
+
+      const updated = TimeManager.updateAfterTimeElapsed(
+        creature,
+        '15+',
+        new Date('2026-05-28T12:01:00')
+      );
+
+      expect(updated.criticalSince).toBeUndefined();
+    });
+  });
 });
