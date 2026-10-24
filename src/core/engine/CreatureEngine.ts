@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'expo-crypto';
 import { Creature, PhysicalStats, MentalStats, SocialStats, Mood } from './types';
 
 export class CreatureEngine {
@@ -9,7 +9,7 @@ export class CreatureEngine {
     const now = new Date();
 
     return {
-      id: uuidv4(),
+      id: randomUUID(),
       name,
       species,
       generation: 1,
