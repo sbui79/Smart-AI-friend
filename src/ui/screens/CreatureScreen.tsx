@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,10 +9,23 @@ import { CreatureDisplay } from '../components/creature/CreatureDisplay';
 import { StatBar } from '../components/creature/StatBar';
 import { ActionButtons } from '../components/creature/ActionButtons';
 import { SpeechBubble } from '../components/ai/SpeechBubble';
+import { Reaction } from '../components/creature/AnimatedCreature';
+
+// Actions the creature responds to while asleep (matches the store's rules)
+const SLEEP_SAFE_ACTIONS = ['pet'];
 
 export const CreatureScreen = ({ navigation }: any) => {
   const { creature, isLoading, lastResponse, performAction, deleteCreature, greet } =
     useCreatureStore();
+  const [reaction, setReaction] = useState<Reaction | null>(null);
+
+  // Animate the creature's reaction, then apply the action
+  const handleAction = (action: string) => {
+    if (creature && (!creature.isAsleep || SLEEP_SAFE_ACTIONS.includes(action))) {
+      setReaction({ action, id: Date.now() });
+    }
+    performAction(action);
+  };
 
   // Say hello whenever the player opens this tab
   useFocusEffect(
@@ -66,9 +79,9 @@ export const CreatureScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
-        <CreatureDisplay creature={creature} />
+        <CreatureDisplay creature={creature} reaction={reaction} />
 
-        {lastResponse && <SpeechBubble response={lastResponse} onQuickReply={performAction} />}
+        {lastResponse && <SpeechBubble response={lastResponse} onQuickReply={handleAction} />}
 
         <View style={styles.card}>
           <StatBar label="Hunger" value={physical.hunger} />
@@ -79,7 +92,7 @@ export const CreatureScreen = ({ navigation }: any) => {
           <StatBar label="Care quality" value={creature.careQuality} />
         </View>
 
-        <ActionButtons isAsleep={creature.isAsleep} onAction={performAction} />
+        <ActionButtons isAsleep={creature.isAsleep} onAction={handleAction} />
       </ScrollView>
     </SafeAreaView>
   );

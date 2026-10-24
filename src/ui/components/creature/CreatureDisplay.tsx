@@ -4,9 +4,11 @@ import { Creature, EvolutionStage } from '../../../core/engine/types';
 import { CreatureEngine } from '../../../core/engine/CreatureEngine';
 import { EvolutionManager } from '../../../core/engine/EvolutionManager';
 import { theme } from '../../theme';
+import { AnimatedCreature, Reaction, idlePoseFor } from './AnimatedCreature';
 
 interface CreatureDisplayProps {
   creature: Creature;
+  reaction?: Reaction | null;
 }
 
 // Placeholder sprites until real artwork is available
@@ -43,18 +45,26 @@ function evolutionHint(creature: Creature): string | null {
  * CreatureDisplay Component
  * Displays the creature with its current evolution stage, mood, and sleep state
  */
-export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature }) => {
+export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature, reaction }) => {
   const isDead = CreatureEngine.isDead(creature);
   const hint = isDead ? null : evolutionHint(creature);
   const moodColor = theme.colors[creature.mood];
+  const pose = idlePoseFor({
+    isDead,
+    isEgg: creature.evolutionStage === 'egg',
+    isAsleep: creature.isAsleep,
+    mood: creature.mood,
+  });
 
   return (
     <View style={styles.container}>
       <View style={[styles.spriteContainer, { borderColor: isDead ? theme.colors.border : moodColor }]}>
-        <Text style={[styles.sprite, creature.isAsleep && styles.asleep]}>
-          {isDead ? '🪦' : STAGE_SPRITES[creature.evolutionStage]}
-        </Text>
-        {creature.isAsleep && !isDead && <Text style={styles.zzz}>💤</Text>}
+        <AnimatedCreature
+          sprite={isDead ? '🪦' : STAGE_SPRITES[creature.evolutionStage]}
+          pose={pose}
+          dimmed={creature.isAsleep && !isDead}
+          reaction={isDead ? null : reaction}
+        />
       </View>
       <Text style={styles.creatureName}>{creature.name}</Text>
       <Text style={styles.stageLabel}>
@@ -86,18 +96,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.full,
     marginBottom: theme.spacing.md,
     borderWidth: 3,
-  },
-  sprite: {
-    fontSize: 72,
-  },
-  asleep: {
-    opacity: 0.6,
-  },
-  zzz: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    fontSize: theme.typography.fontSize['2xl'],
   },
   creatureName: {
     fontSize: theme.typography.fontSize['2xl'],
