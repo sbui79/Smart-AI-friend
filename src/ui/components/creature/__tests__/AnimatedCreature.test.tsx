@@ -49,6 +49,20 @@ describe('AnimatedCreature', () => {
     expect(screen.getAllByText('💕')).toHaveLength(3);
   });
 
+  it('draws a ground shadow under the creature', () => {
+    render(<AnimatedCreature sprite="🐣" pose="hop" ringColor="#F59E0B" />);
+    expect(screen.getByTestId('ground-shadow')).toBeTruthy();
+  });
+
+  it('spins and floats stars when played with', () => {
+    render(<AnimatedCreature sprite="🐣" pose="hop" reaction={{ action: 'play', id: 1 }} />);
+    expect(screen.getAllByText('⭐')).toHaveLength(3);
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(screen.queryByText('⭐')).toBeNull();
+  });
+
   it('clears reaction emoji once they float away', () => {
     render(<AnimatedCreature sprite="🐣" pose="hop" reaction={{ action: 'gift', id: 1 }} />);
     act(() => {

@@ -58,12 +58,13 @@ export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature, reac
 
   return (
     <View style={styles.container}>
-      <View style={[styles.spriteContainer, { borderColor: isDead ? theme.colors.border : moodColor }]}>
+      <View style={styles.spriteContainer}>
         <AnimatedCreature
           sprite={isDead ? '🪦' : STAGE_SPRITES[creature.evolutionStage]}
           pose={pose}
           dimmed={creature.isAsleep && !isDead}
           reaction={isDead ? null : reaction}
+          ringColor={isDead ? theme.colors.border : moodColor}
         />
       </View>
       <Text style={styles.creatureName}>{creature.name}</Text>
@@ -88,14 +89,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   spriteContainer: {
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: theme.borderRadius.full,
-    marginBottom: theme.spacing.md,
-    borderWidth: 3,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   creatureName: {
     fontSize: theme.typography.fontSize['2xl'],
