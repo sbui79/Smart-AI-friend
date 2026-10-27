@@ -1,6 +1,8 @@
 import { ModuleDefinition } from './types';
 import { Creature, CareEvent } from '../engine/types';
 import { CreatureEngine } from '../engine/CreatureEngine';
+import { MedicineManager } from '../engine/MedicineManager';
+import { TimeManager } from '../engine/TimeManager';
 
 // Only keep recent events so the saved creature doesn't grow forever
 const MAX_CARE_HISTORY = 50;
@@ -128,6 +130,51 @@ export const BasicCareModule: ModuleDefinition = {
       };
 
       updated = recordCareEvent(updated, 'gift', changes);
+
+      return updated;
+    },
+
+    /**
+     * Give medicine - a small boost now, then health keeps recovering for a few hours
+     */
+    medicine: (creature: Creature): Creature => {
+      const changes = {
+        'physical.health': creature.physical.health + MedicineManager.IMMEDIATE_HEALTH,
+        'mental.happiness': creature.mental.happiness - 5, // It tastes yucky
+      };
+
+      let updated = CreatureEngine.updateStats(creature, changes);
+      updated = { ...updated, lastMedicineAt: new Date() };
+      updated = recordCareEvent(updated, 'medicine', changes);
+
+      return updated;
+    },
+
+    /**
+     * Wake the creature up - being woken at night makes it a little grumpy
+     */
+    wake: (creature: Creature): Creature => {
+      const now = new Date();
+      const changes: Record<string, number> = TimeManager.isDayTime(now)
+        ? {}
+        : { 'mental.happiness': creature.mental.happiness - 5 };
+
+      let updated = CreatureEngine.updateStats(TimeManager.wakeUp(creature, now), changes);
+      updated = recordCareEvent(updated, 'wake', changes);
+
+      return updated;
+    },
+
+    /**
+     * Rock the creature to sleep - comforting, and back to bed (or a nap by day)
+     */
+    rock: (creature: Creature): Creature => {
+      const changes = {
+        'social.affection': creature.social.affection + 5,
+      };
+
+      let updated = CreatureEngine.updateStats(TimeManager.rockToSleep(creature), changes);
+      updated = recordCareEvent(updated, 'rock', changes);
 
       return updated;
     },

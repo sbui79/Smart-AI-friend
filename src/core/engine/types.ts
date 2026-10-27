@@ -33,7 +33,7 @@ export interface SocialStats {
 
 // Care tracking
 export interface CareEvent {
-  type: 'feed' | 'play' | 'clean' | 'pet' | 'train' | 'gift';
+  type: 'feed' | 'play' | 'clean' | 'pet' | 'train' | 'gift' | 'medicine' | 'wake' | 'rock';
   timestamp: Date;
   statChanges: Record<string, number>;
 }
@@ -105,6 +105,15 @@ export interface Creature {
   careHistory: CareEvent[];
   lastInteractionDate: Date;
   criticalSince?: Date;  // When the creature most recently entered a critical state
+
+  // Player-chosen sleep (woken at night or rocked into a daytime nap), until it wears off
+  sleepOverride?: SleepOverride;
+  lastMedicineAt?: Date;
+}
+
+export interface SleepOverride {
+  asleep: boolean;
+  until: Date;
 }
 
 // Evolution configuration

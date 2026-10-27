@@ -1,5 +1,6 @@
 import { Creature, StatDecayRates, AgeMode } from './types';
 import { CreatureEngine } from './CreatureEngine';
+import { MedicineManager } from './MedicineManager';
 
 const HOUR_MS = 1000 * 60 * 60;
 
@@ -7,6 +8,12 @@ export class TimeManager {
   // Day/night cycle hours
   private static readonly DAY_START_HOUR = 6;  // 6am
   private static readonly DAY_END_HOUR = 22;   // 10pm
+
+  // A creature woken at night dozes off again if not rocked back to sleep within this time
+  static readonly NIGHT_WAKE_HOURS = 1;
+  // How long a daytime nap lasts, and how fast it restores energy
+  static readonly NAP_HOURS = 1;
+  private static readonly NAP_ENERGY_PER_HOUR = 40;
 
   // Stat decay rates per hour for Ages 15+ (Classic/Challenge mode)
   private static readonly DECAY_RATES_15_PLUS: StatDecayRates = {
@@ -51,6 +58,53 @@ export class TimeManager {
     }
 
     return next;
+  }
+
+  /**
+   * Whether the creature is asleep at a moment: the day/night cycle, unless the player
+   * woke it at night or rocked it into a nap that hasn't worn off yet
+   */
+  static isAsleepAt(creature: Creature, date: Date): boolean {
+    const override = creature.sleepOverride;
+    if (override && date < override.until) {
+      return override.asleep;
+    }
+    return !this.isDayTime(date);
+  }
+
+  /**
+   * End a player-chosen sleep state at the given time, but never past the next sunrise/sunset
+   */
+  private static overrideUntil(now: Date, hours: number): Date {
+    const boundary = this.nextDayNightBoundary(now);
+    const until = new Date(now.getTime() + hours * HOUR_MS);
+    return until < boundary ? until : boundary;
+  }
+
+  /**
+   * Wake the creature: at night it stays up for a short while, by day it ends a nap
+   */
+  static wakeUp(creature: Creature, now: Date = new Date()): Creature {
+    return {
+      ...creature,
+      isAsleep: false,
+      sleepOverride: this.isDayTime(now)
+        ? undefined
+        : { asleep: false, until: this.overrideUntil(now, this.NIGHT_WAKE_HOURS) },
+    };
+  }
+
+  /**
+   * Rock the creature to sleep: at night it goes back to bed, by day it takes a nap
+   */
+  static rockToSleep(creature: Creature, now: Date = new Date()): Creature {
+    return {
+      ...creature,
+      isAsleep: true,
+      sleepOverride: this.isDayTime(now)
+        ? { asleep: true, until: this.overrideUntil(now, this.NAP_HOURS) }
+        : undefined,
+    };
   }
 
   /**
@@ -181,10 +235,15 @@ export class TimeManager {
     }
 
     const elapsedHours = this.daytimeHoursBetween(creature.lastInteractionDate, currentDate);
+    const override = creature.sleepOverride;
 
-    let updated = creature;
+    let updated: Creature = {
+      ...creature,
+      sleepOverride: override && currentDate < override.until ? override : undefined,
+    };
 
-    if (this.isDayTime(currentDate)) {
+    if (!this.isAsleepAt(creature, currentDate)) {
+      // Awake (stats only decay during daytime hours)
       updated = {
         ...updated,
         isAsleep: false,
@@ -192,6 +251,12 @@ export class TimeManager {
       updated = this.applyStatDecay(updated, elapsedHours, ageMode);
       updated = this.applyHealthChange(updated, elapsedHours);
       updated = CreatureEngine.updateCareQuality(updated, elapsedHours);
+    } else if (this.isDayTime(currentDate)) {
+      // Daytime nap: needs pause and energy comes back
+      updated = CreatureEngine.updateStats(
+        { ...updated, isAsleep: true },
+        { 'physical.energy': updated.physical.energy + this.NAP_ENERGY_PER_HOUR * elapsedHours }
+      );
     } else {
       // Night time: creature sleeps and energy is restored
       updated = {
@@ -202,6 +267,18 @@ export class TimeManager {
           energy: 100,
         },
       };
+    }
+
+    // Medicine keeps healing for a few hours after each dose, even while asleep
+    const healing = MedicineManager.healingBetween(
+      creature,
+      creature.lastInteractionDate,
+      currentDate
+    );
+    if (healing > 0) {
+      updated = CreatureEngine.updateStats(updated, {
+        'physical.health': updated.physical.health + healing,
+      });
     }
 
     // Track how long the creature has been neglected

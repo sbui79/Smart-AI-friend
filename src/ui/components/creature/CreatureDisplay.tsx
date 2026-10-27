@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Creature, EvolutionStage } from '../../../core/engine/types';
 import { CreatureEngine } from '../../../core/engine/CreatureEngine';
 import { EvolutionManager } from '../../../core/engine/EvolutionManager';
+import { MedicineManager } from '../../../core/engine/MedicineManager';
 import { theme } from '../../theme';
 import { AnimatedCreature, Reaction, idlePoseFor } from './AnimatedCreature';
 
@@ -42,12 +43,27 @@ function evolutionHint(creature: Creature): string | null {
 }
 
 /**
+ * Tell the player when the creature's next medicine is due
+ */
+function medicineHint(creature: Creature): string | null {
+  if (!MedicineManager.needsMedicine(creature)) {
+    return null;
+  }
+  if (MedicineManager.isDoseDue(creature)) {
+    return creature.isAsleep ? '💊 Medicine time! Wake them up gently' : '💊 Medicine time!';
+  }
+  const hours = MedicineManager.hoursUntilNextDose(creature);
+  return `💊 Next medicine in ~${hours}h`;
+}
+
+/**
  * CreatureDisplay Component
  * Displays the creature with its current evolution stage, mood, and sleep state
  */
 export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature, reaction }) => {
   const isDead = CreatureEngine.isDead(creature);
   const hint = isDead ? null : evolutionHint(creature);
+  const medicine = isDead ? null : medicineHint(creature);
   const moodColor = theme.colors[creature.mood];
   const pose = idlePoseFor({
     isDead,
@@ -78,6 +94,7 @@ export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature, reac
         )}
       </Text>
       {hint && <Text style={styles.hint}>{hint}</Text>}
+      {medicine && <Text style={styles.medicine}>{medicine}</Text>}
     </View>
   );
 };
@@ -107,6 +124,12 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textTertiary,
+  },
+  medicine: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.error,
   },
 });
 

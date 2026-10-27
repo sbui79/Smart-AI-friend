@@ -4,6 +4,7 @@ import { theme } from '../../theme';
 
 interface ActionButtonsProps {
   isAsleep: boolean;
+  medicineDue?: boolean;
   onAction: (action: string) => void;
 }
 
@@ -14,29 +15,46 @@ const ACTIONS = [
   { action: 'pet', label: 'Pet', icon: '🤚' },
   { action: 'train', label: 'Train', icon: '🎯' },
   { action: 'gift', label: 'Gift', icon: '🎁' },
+  { action: 'medicine', label: 'Medicine', icon: '💊' },
+  { action: 'wake', label: 'Wake up', icon: '☀️' },
+  { action: 'rock', label: 'Rock to sleep', icon: '🌙' },
 ];
+
+// Actions available while the creature sleeps
+const SLEEP_ACTIONS = ['pet', 'wake'];
 
 /**
  * ActionButtons Component
- * Grid of care actions; only petting is allowed while the creature sleeps
+ * Grid of care actions; while asleep the creature can only be petted or woken up.
+ * Medicine is highlighted when a dose is due.
  */
-export const ActionButtons: React.FC<ActionButtonsProps> = ({ isAsleep, onAction }) => {
+export const ActionButtons: React.FC<ActionButtonsProps> = ({ isAsleep, medicineDue, onAction }) => {
   return (
     <View style={styles.grid}>
       {ACTIONS.map(({ action, label, icon }) => {
-        const disabled = isAsleep && action !== 'pet';
+        const disabled =
+          (isAsleep && !SLEEP_ACTIONS.includes(action)) || (!isAsleep && action === 'wake');
+        const highlighted = action === 'medicine' && medicineDue;
         return (
           <TouchableOpacity
             key={action}
-            style={[styles.button, disabled && styles.disabled]}
+            style={[styles.button, highlighted && styles.highlighted, disabled && styles.disabled]}
             onPress={() => onAction(action)}
             disabled={disabled}
             accessibilityRole="button"
             accessibilityLabel={label}
+            accessibilityHint={highlighted ? 'Medicine is due now' : undefined}
             accessibilityState={{ disabled }}
           >
+            {highlighted && (
+              <View style={styles.badge} testID="medicine-due-badge">
+                <Text style={styles.badgeText}>Now</Text>
+              </View>
+            )}
             <Text style={styles.icon}>{icon}</Text>
-            <Text style={styles.label}>{label}</Text>
+            <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>
+              {label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -60,8 +78,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  highlighted: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
+  },
   disabled: {
     opacity: 0.4,
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -4,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.error,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.bold,
   },
   icon: {
     fontSize: theme.typography.fontSize['2xl'],

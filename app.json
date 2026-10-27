@@ -46,7 +46,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#E6F4FE"
         }
-      ]
+      ],
+      "./plugins/withMinimumPodDeploymentTarget"
     ],
     "extra": {
       "eas": {

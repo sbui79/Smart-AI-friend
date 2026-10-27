@@ -8,6 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { Mood } from '../../../core/engine/types';
 import { theme } from '../../theme';
 
@@ -38,6 +39,9 @@ const REACTION_EMOJI: Record<string, string> = {
   train: '💡',
   gift: '🎉',
   poke: '💕',
+  medicine: '💊',
+  wake: '☀️',
+  rock: '🌙',
 };
 
 // Reactions that end in a full 3D spin instead of a wiggle
@@ -71,6 +75,11 @@ const IDLE_SHADOW_SCALE: Record<IdlePose, number> = {
 };
 
 const PARTICLE_OFFSETS = [-60, 0, 60];
+
+const SHADOW_WIDTH = 128;
+const SHADOW_HEIGHT = 26;
+const FLOOR_WIDTH = STAGE_SIZE * 0.74;
+const FLOOR_HEIGHT = 56;
 
 /**
  * Pick the idle animation that matches how the creature feels
@@ -169,6 +178,7 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
   const wiggle = useRef(new Animated.Value(0)).current;
   const spin = useRef(new Animated.Value(0)).current;
   const zzz = useRef(new Animated.Value(0)).current;
+  const pop = useRef(new Animated.Value(1)).current;
   // Driven by touch on the JS thread, so it lives on its own view
   const drag = useRef(new Animated.Value(0)).current;
   const [particles, setParticles] = useState<{ id: string; emoji: string; offsetX: number; delay: number }[]>([]);
@@ -186,6 +196,15 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
         Animated.spring(drag, { toValue: 0, friction: 4, tension: 60, useNativeDriver: false }).start(),
     })
   ).current;
+
+  // Pop in with a bounce when first shown and whenever the sprite changes (hatching, evolving)
+  useEffect(() => {
+    if (reduceMotion) return;
+    pop.setValue(0);
+    const animation = Animated.spring(pop, { toValue: 1, friction: 4, tension: 70, useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [sprite]);
 
   // Idle loop for the current pose
   useEffect(() => {
@@ -255,6 +274,16 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
     land.setValue(0);
     wiggle.setValue(0);
     spin.setValue(0);
+
+    // Rocking cradles the creature gently side to side instead of a leap
+    if (action === 'rock') {
+      Animated.sequence(
+        [-0.6, 0.6, -0.4, 0.4, -0.2, 0].map(toValue =>
+          Animated.timing(wiggle, { toValue, duration: 420, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+        )
+      ).start();
+      return;
+    }
 
     // Crouch, leap, fall and squash on landing
     const leap = Animated.sequence([
@@ -328,10 +357,57 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
     idle.interpolate({ inputRange: [0, 1], outputRange: [1, IDLE_SHADOW_SCALE[pose]] })
   );
 
+  const tint = ringColor ?? theme.colors.border;
+
   return (
-    <View style={[styles.bubble, ringColor ? { borderColor: ringColor, shadowColor: ringColor } : null]}>
-      <View style={styles.bubbleLight} />
-      <View style={styles.bubbleHighlight} />
+    <View style={[styles.bubble, { borderColor: tint, shadowColor: tint }]}>
+      {/* A sphere lit from the top-left that falls off into the mood color, with a glowing floor */}
+      <Svg style={StyleSheet.absoluteFill} width={STAGE_SIZE - 8} height={STAGE_SIZE - 8}>
+        <Defs>
+          <RadialGradient id="creature-sphere" cx="40%" cy="32%" r="72%" fx="36%" fy="26%">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
+            <Stop offset="0.6" stopColor="#FFFFFF" stopOpacity="1" />
+            <Stop offset="1" stopColor={tint} stopOpacity="0.22" />
+          </RadialGradient>
+          <RadialGradient id="creature-floor" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0" stopColor={tint} stopOpacity="0.22" />
+            <Stop offset="1" stopColor={tint} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle
+          cx={(STAGE_SIZE - 8) / 2}
+          cy={(STAGE_SIZE - 8) / 2}
+          r={(STAGE_SIZE - 8) / 2}
+          fill="url(#creature-sphere)"
+        />
+        <Ellipse
+          cx={(STAGE_SIZE - 8) / 2}
+          cy={STAGE_SIZE - 8 - 46}
+          rx={FLOOR_WIDTH / 2}
+          ry={FLOOR_HEIGHT / 2}
+          fill="url(#creature-floor)"
+        />
+      </Svg>
+
+      {/* The shine slides against a drag so the bubble feels like a real glass sphere */}
+      <Animated.View
+        style={[
+          styles.bubbleHighlight,
+          {
+            transform: [
+              {
+                translateX: drag.interpolate({
+                  inputRange: [-150, 150],
+                  outputRange: [18, -18],
+                  extrapolate: 'clamp',
+                }),
+              },
+              { rotate: '-28deg' },
+            ],
+          },
+        ]}
+      />
+      <View style={styles.bubbleSparkle} />
 
       <Animated.View
         testID="ground-shadow"
@@ -342,7 +418,24 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
             transform: [{ scaleX: shadowScale }, { scaleY: shadowScale }],
           },
         ]}
-      />
+      >
+        <Svg width={SHADOW_WIDTH} height={SHADOW_HEIGHT}>
+          <Defs>
+            <RadialGradient id="creature-shadow" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#000000" stopOpacity="0.28" />
+              <Stop offset="0.5" stopColor="#000000" stopOpacity="0.12" />
+              <Stop offset="1" stopColor="#000000" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Ellipse
+            cx={SHADOW_WIDTH / 2}
+            cy={SHADOW_HEIGHT / 2}
+            rx={SHADOW_WIDTH / 2}
+            ry={SHADOW_HEIGHT / 2}
+            fill="url(#creature-shadow)"
+          />
+        </Svg>
+      </Animated.View>
 
       <Animated.View
         {...panResponder.panHandlers}
@@ -370,6 +463,7 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
             style={{
               transform: [
                 { perspective: PERSPECTIVE },
+                { scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
                 { translateY: jump.interpolate({ inputRange: [0, 1], outputRange: [0, -64] }) },
                 { rotate: wiggle.interpolate({ inputRange: [-1, 1], outputRange: ['-12deg', '12deg'] }) },
                 { rotateY: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
@@ -460,42 +554,37 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 8,
   },
-  // A lit inner sphere, shifted up, leaves a soft darker rim at the bottom for depth
-  bubbleLight: {
-    position: 'absolute',
-    top: 6,
-    width: STAGE_SIZE * 0.86,
-    height: STAGE_SIZE * 0.86,
-    borderRadius: STAGE_SIZE,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
-  },
   // Glossy shine in the top-left
   bubbleHighlight: {
     position: 'absolute',
-    top: 28,
-    left: 42,
-    width: 70,
-    height: 30,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    transform: [{ rotate: '-28deg' }],
+    top: 26,
+    left: 40,
+    width: 72,
+    height: 28,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
-  // A faint ellipse whose own iOS shadow is blurred, so the edge stays soft
+  // A small second glint, as a curved glass surface would show
+  bubbleSparkle: {
+    position: 'absolute',
+    top: 62,
+    left: 34,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
   groundShadow: {
     position: 'absolute',
-    bottom: 42,
-    width: 96,
-    height: 14,
-    borderRadius: 48,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    bottom: 38,
   },
   sprite: {
     fontSize: 140,
     marginBottom: 12,
+    // A soft drop shadow lifts the sprite off the floor
+    textShadowColor: 'rgba(0, 0, 0, 0.18)',
+    textShadowOffset: { width: 0, height: 8 },
+    textShadowRadius: 12,
   },
   dimmed: {
     opacity: 0.6,

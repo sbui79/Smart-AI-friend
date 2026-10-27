@@ -1,6 +1,8 @@
 import { ModuleDefinition } from './types';
 import { Creature } from '../engine/types';
 import { CreatureEngine } from '../engine/CreatureEngine';
+import { MedicineManager } from '../engine/MedicineManager';
+import { TimeManager } from '../engine/TimeManager';
 
 /**
  * AI Response structure
@@ -68,9 +70,25 @@ export const LocalAIModule: ModuleDefinition = {
     getContextualQuickReplies: (creature: Creature): QuickReply[] => {
       const replies: QuickReply[] = [];
 
-      // A sleeping creature can only be petted
+      const medicineDue = MedicineManager.isDoseDue(creature);
+
+      // A sleeping creature can only be petted, or woken when its medicine is due
       if (creature.isAsleep) {
-        return [{ label: 'Pet gently', action: 'pet' }];
+        return medicineDue
+          ? [
+              { label: 'Wake up for medicine', action: 'wake' },
+              { label: 'Pet gently', action: 'pet' },
+            ]
+          : [{ label: 'Pet gently', action: 'pet' }];
+      }
+
+      if (medicineDue) {
+        replies.push({ label: 'Medicine time', action: 'medicine' });
+      }
+
+      // Awake in the middle of the night: time to go back to bed
+      if (!TimeManager.isDayTime(new Date())) {
+        replies.push({ label: 'Rock to sleep', action: 'rock' });
       }
 
       // Check critical needs first

@@ -7,9 +7,42 @@ import { BasicCareModule } from '../modules/BasicCareModule';
 import { EvolutionModule } from '../modules/EvolutionModule';
 import { LocalAIModule, AIResponse } from '../modules/LocalAIModule';
 import { useModuleStore } from './moduleSlice';
+import { MedicineManager } from '../engine/MedicineManager';
 
 // Actions still allowed while the creature is asleep
-const SLEEP_SAFE_ACTIONS = ['pet'];
+const SLEEP_SAFE_ACTIONS = ['pet', 'wake'];
+
+// What the creature says right after these actions
+const ACTION_LINES: Record<string, string> = {
+  medicine: 'Yuck! ...but I feel a little better already.',
+  wake: '*yawns* Huh? Is it time for something?',
+  rock: 'Zzz... *snuggles up*',
+};
+
+/**
+ * Explain why an action can't be done right now, or return null if it can
+ */
+export function actionBlockedReason(creature: Creature, action: string): string | null {
+  if (action === 'wake' && !creature.isAsleep) {
+    return "I'm already awake!";
+  }
+  if (action === 'rock' && creature.isAsleep) {
+    return 'Zzz... *already sound asleep*';
+  }
+  if (creature.isAsleep && !SLEEP_SAFE_ACTIONS.includes(action)) {
+    return 'Zzz... *snore*';
+  }
+  if (action === 'medicine') {
+    if (!MedicineManager.needsMedicine(creature)) {
+      return "I feel fine, I don't need medicine!";
+    }
+    if (!MedicineManager.isDoseDue(creature)) {
+      const hours = MedicineManager.hoursUntilNextDose(creature);
+      return `Not yet! My next medicine is in about ${hours} hour${hours === 1 ? '' : 's'}.`;
+    }
+  }
+  return null;
+}
 
 /**
  * Catch the creature up on elapsed time and check whether it has evolved
@@ -146,10 +179,11 @@ export const useCreatureStore = create<CreatureState>((set, get) => ({
         return;
       }
 
-      if (updated.isAsleep && !SLEEP_SAFE_ACTIONS.includes(action)) {
+      const blockedReason = actionBlockedReason(updated, action);
+      if (blockedReason) {
         set({
           creature: updated,
-          lastResponse: { text: 'Zzz... *snore*', quickReplies: [] },
+          lastResponse: { text: blockedReason, quickReplies: [] },
         });
         return;
       }
@@ -169,10 +203,13 @@ export const useCreatureStore = create<CreatureState>((set, get) => ({
       const response = respond(updated, 'afterAction');
       set({
         creature: updated,
-        lastResponse:
-          response && updated.evolutionStage !== stageBefore
-            ? { ...response, text: `Whoa... I evolved into a ${updated.evolutionStage}!` }
-            : response,
+        lastResponse: !response
+          ? null
+          : updated.evolutionStage !== stageBefore
+          ? { ...response, text: `Whoa... I evolved into a ${updated.evolutionStage}!` }
+          : ACTION_LINES[action]
+          ? { ...response, text: ACTION_LINES[action] }
+          : response,
       });
     } catch (error) {
       set({ error: `Failed to perform action: ${error}` });

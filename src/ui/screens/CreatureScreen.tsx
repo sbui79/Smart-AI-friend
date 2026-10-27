@@ -3,16 +3,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../theme';
-import { useCreatureStore } from '../../core/state/store';
+import { actionBlockedReason, useCreatureStore } from '../../core/state/store';
 import { CreatureEngine } from '../../core/engine/CreatureEngine';
+import { MedicineManager } from '../../core/engine/MedicineManager';
 import { CreatureDisplay } from '../components/creature/CreatureDisplay';
 import { StatBar } from '../components/creature/StatBar';
 import { ActionButtons } from '../components/creature/ActionButtons';
 import { SpeechBubble } from '../components/ai/SpeechBubble';
 import { Reaction } from '../components/creature/AnimatedCreature';
-
-// Actions the creature responds to while asleep (matches the store's rules)
-const SLEEP_SAFE_ACTIONS = ['pet'];
 
 export const CreatureScreen = ({ navigation }: any) => {
   const { creature, isLoading, lastResponse, performAction, deleteCreature, greet } =
@@ -21,7 +19,7 @@ export const CreatureScreen = ({ navigation }: any) => {
 
   // Animate the creature's reaction, then apply the action
   const handleAction = (action: string) => {
-    if (creature && (!creature.isAsleep || SLEEP_SAFE_ACTIONS.includes(action))) {
+    if (creature && !actionBlockedReason(creature, action)) {
       setReaction({ action, id: Date.now() });
     }
     performAction(action);
@@ -92,7 +90,11 @@ export const CreatureScreen = ({ navigation }: any) => {
           <StatBar label="Care quality" value={creature.careQuality} />
         </View>
 
-        <ActionButtons isAsleep={creature.isAsleep} onAction={handleAction} />
+        <ActionButtons
+          isAsleep={creature.isAsleep}
+          medicineDue={MedicineManager.isDoseDue(creature)}
+          onAction={handleAction}
+        />
       </ScrollView>
     </SafeAreaView>
   );

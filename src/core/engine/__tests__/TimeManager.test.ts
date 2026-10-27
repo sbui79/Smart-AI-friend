@@ -243,4 +243,93 @@ describe('TimeManager', () => {
       expect(updated.criticalSince).toBeUndefined();
     });
   });
+
+  describe('waking and rocking to sleep', () => {
+    const at = (time: string) => new Date(`2026-05-28T${time}`);
+    const creatureAt = (time: string): Creature => ({
+      ...CreatureEngine.createCreature('TestPet'),
+      lastInteractionDate: at(time),
+    });
+
+    it('keeps a creature woken at night awake', () => {
+      const woken = TimeManager.wakeUp(creatureAt('23:00:00'), at('23:00:00'));
+
+      const updated = TimeManager.updateAfterTimeElapsed(woken, '15+', at('23:30:00'));
+      expect(updated.isAsleep).toBe(false);
+    });
+
+    it('lets a creature woken at night doze off again after a while', () => {
+      const woken = TimeManager.wakeUp(creatureAt('23:00:00'), at('23:00:00'));
+
+      const updated = TimeManager.updateAfterTimeElapsed(woken, '15+', at('23:50:00'));
+      expect(updated.isAsleep).toBe(false);
+
+      const later = TimeManager.updateAfterTimeElapsed(
+        updated,
+        '15+',
+        new Date(at('23:00:00').getTime() + (TimeManager.NIGHT_WAKE_HOURS + 0.5) * 3600 * 1000)
+      );
+      expect(later.isAsleep).toBe(true);
+      expect(later.sleepOverride).toBeUndefined();
+    });
+
+    it('puts a creature back to bed at night when rocked', () => {
+      const woken = TimeManager.wakeUp(creatureAt('23:00:00'), at('23:00:00'));
+      const rocked = TimeManager.rockToSleep(woken, at('23:10:00'));
+
+      expect(rocked.sleepOverride).toBeUndefined();
+      expect(TimeManager.updateAfterTimeElapsed(rocked, '15+', at('23:20:00')).isAsleep).toBe(true);
+    });
+
+    it('naps during the day, restoring energy without decay', () => {
+      const tired: Creature = {
+        ...creatureAt('12:00:00'),
+        physical: { ...creatureAt('12:00:00').physical, energy: 30, hunger: 80 },
+      };
+      const napping = TimeManager.rockToSleep(tired, at('12:00:00'));
+
+      const updated = TimeManager.updateAfterTimeElapsed(napping, '15+', at('12:30:00'));
+      expect(updated.isAsleep).toBe(true);
+      expect(updated.physical.energy).toBe(50);
+      expect(updated.physical.hunger).toBe(80);
+    });
+
+    it('wakes up from a nap on its own', () => {
+      const napping = TimeManager.rockToSleep(creatureAt('12:00:00'), at('12:00:00'));
+
+      const updated = TimeManager.updateAfterTimeElapsed(napping, '15+', at('13:30:00'));
+      expect(updated.isAsleep).toBe(false);
+      expect(updated.sleepOverride).toBeUndefined();
+    });
+
+    it('can be woken from a nap early', () => {
+      const napping = TimeManager.rockToSleep(creatureAt('12:00:00'), at('12:00:00'));
+      const woken = TimeManager.wakeUp(napping, at('12:10:00'));
+
+      expect(woken.sleepOverride).toBeUndefined();
+      expect(TimeManager.updateAfterTimeElapsed(woken, '15+', at('12:20:00')).isAsleep).toBe(false);
+    });
+  });
+
+  describe('medicine', () => {
+    it('keeps healing a sick creature while it sleeps', () => {
+      const base = CreatureEngine.createCreature('TestPet');
+      const creature: Creature = {
+        ...base,
+        isAsleep: true,
+        physical: { ...base.physical, health: 20 },
+        lastMedicineAt: new Date('2026-05-28T22:30:00'),
+        lastInteractionDate: new Date('2026-05-28T22:30:00'),
+      };
+
+      const updated = TimeManager.updateAfterTimeElapsed(
+        creature,
+        '15+',
+        new Date('2026-05-28T23:30:00')
+      );
+
+      expect(updated.isAsleep).toBe(true);
+      expect(updated.physical.health).toBe(30);
+    });
+  });
 });
