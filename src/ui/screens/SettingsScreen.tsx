@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { getSpecies } from '../../core/engine/species';
 import { theme } from '../theme';
 import { useCreatureStore } from '../../core/state/store';
 
@@ -55,7 +56,7 @@ export const SettingsScreen = ({ navigation }: any) => {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Species</Text>
-            <Text style={styles.infoValue}>{creature.species}</Text>
+            <Text style={styles.infoValue}>{getSpecies(creature.species).name}</Text>
           </View>
           <TouchableOpacity
             style={[styles.button, styles.dangerButton]}

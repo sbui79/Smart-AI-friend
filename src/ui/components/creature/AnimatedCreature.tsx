@@ -25,6 +25,8 @@ interface AnimatedCreatureProps {
   dimmed?: boolean;
   reaction?: Reaction | null;
   ringColor?: string;
+  // Size of the sprite relative to full grown (1)
+  spriteScale?: number;
 }
 
 const STAGE_SIZE = 240;
@@ -169,6 +171,7 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
   dimmed,
   reaction,
   ringColor,
+  spriteScale = 1,
 }) => {
   const reduceMotion = useReduceMotion();
   const idle = useRef(new Animated.Value(0)).current;
@@ -463,7 +466,7 @@ export const AnimatedCreature: React.FC<AnimatedCreatureProps> = ({
             style={{
               transform: [
                 { perspective: PERSPECTIVE },
-                { scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+                { scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3 * spriteScale, spriteScale] }) },
                 { translateY: jump.interpolate({ inputRange: [0, 1], outputRange: [0, -64] }) },
                 { rotate: wiggle.interpolate({ inputRange: [-1, 1], outputRange: ['-12deg', '12deg'] }) },
                 { rotateY: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },

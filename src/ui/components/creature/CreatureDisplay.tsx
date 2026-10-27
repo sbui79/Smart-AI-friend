@@ -4,6 +4,7 @@ import { Creature, EvolutionStage } from '../../../core/engine/types';
 import { CreatureEngine } from '../../../core/engine/CreatureEngine';
 import { EvolutionManager } from '../../../core/engine/EvolutionManager';
 import { MedicineManager } from '../../../core/engine/MedicineManager';
+import { spriteFor } from '../../../core/engine/species';
 import { theme } from '../../theme';
 import { AnimatedCreature, Reaction, idlePoseFor } from './AnimatedCreature';
 
@@ -12,14 +13,14 @@ interface CreatureDisplayProps {
   reaction?: Reaction | null;
 }
 
-// Placeholder sprites until real artwork is available
-const STAGE_SPRITES: Record<EvolutionStage, string> = {
-  egg: '🥚',
-  baby: '🐣',
-  child: '🐥',
-  teen: '🐤',
-  adult: '🐦',
-  elder: '🦉',
+// The creature grows a little with each life stage
+const STAGE_SCALE: Record<EvolutionStage, number> = {
+  egg: 0.85,
+  baby: 0.7,
+  child: 0.8,
+  teen: 0.9,
+  adult: 1,
+  elder: 1,
 };
 
 /**
@@ -76,7 +77,8 @@ export const CreatureDisplay: React.FC<CreatureDisplayProps> = ({ creature, reac
     <View style={styles.container}>
       <View style={styles.spriteContainer}>
         <AnimatedCreature
-          sprite={isDead ? '🪦' : STAGE_SPRITES[creature.evolutionStage]}
+          sprite={isDead ? '🪦' : spriteFor(creature.species, creature.evolutionStage)}
+          spriteScale={isDead ? 1 : STAGE_SCALE[creature.evolutionStage]}
           pose={pose}
           dimmed={creature.isAsleep && !isDead}
           reaction={isDead ? null : reaction}
